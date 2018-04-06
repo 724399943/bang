@@ -1,0 +1,91 @@
+<template>
+	<!-- 底部固定菜单 -->
+    <footer class="y-ycar-foot">
+      	<router-link to="/" :class="{on : $store.state.isActive == 'index'}">
+        	<em class="icon"><i></i></em>
+      	</router-link>
+      	<router-link to="/categoryList" :class="{on : $store.state.isActive == 'categoryList'}">
+        	<em class="icon"><i></i></em>
+      	</router-link>
+        <router-link to="/login" v-if="session_id == undefined">
+          <em class="icon"><i class="release" /></em>
+        </router-link>
+        <template v-else>
+        	<router-link to="/selectUserType" v-if="is_auth==0 || is_auth==null || $store.state.is_auth==0 || $store.state.is_auth==null">
+          	<em class="icon"><i class="release" /></em>
+        	</router-link>
+          <a href="javascript:;" v-else-if="is_auth==1 || $store.state.is_auth==1">
+            <em class="icon"><i class="release"></i></em>
+            <input type="file" name="" accept="image/*" class="relinput" @change="imageuploaded" v-if="(iphone == false && android == false) || iphone == true">
+            <input type="button" class="relinput" @click="choose" v-else-if="android == true">
+          </a>
+        </template>
+      	<router-link to="/messageIndex" :class="{on : $store.state.isActive == 'messageIndex'}">
+        	<em class="icon"><i></i></em>
+      	</router-link>
+        <router-link to="/personalCenter" :class="{on : $store.state.isActive == 'personalCenter'}">
+          <em class="icon"><i></i></em>
+        </router-link>      	
+    </footer>	
+</template>
+<script>
+export default {
+
+	data () {
+		return {			
+	    iphone : false,
+      android : false,
+      session_id : localStorage.session_id,
+      is_auth:localStorage.is_auth
+    }
+	},
+  created(){
+    var ua = navigator.userAgent.toLowerCase();
+    if (ua.indexOf('micromessenger') == -1) {
+      if (ua.indexOf('iphone') != -1 || ua.indexOf('ipad') != -1 || ua.indexOf('ipod') != -1) {
+            this.iphone = true;
+            this.android = false;
+        } else {
+            this.iphone = false;
+            this.android = true;
+        }
+    }
+    window.onChooseResult = this.onChooseResult;
+  },
+	watch : {
+    		
+	},
+  methods:{
+    imageuploaded(e) { 
+        var that = this;
+        that.$store.state.demandImgList = [];
+        var files = e.target.files || e.dataTransfer.files
+        var reader = null;
+        reader = new window.FileReader();
+        reader.readAsDataURL(files[0]);
+        reader.onload = function(e){
+          that.$http.post('/Shop/Public/base64Upload', {image:e.target.result,dir:'Demand'},{emulateJSON:true}).then(function(response){
+              if( response.data.status == "200000" ){
+                  that.$store.state.demandImgList.push(response.data.data.image);
+                  console.log(that.$store.state.demandImgList);
+                  that.$router.push("/addlabels");
+              }
+          })
+        }
+    },
+    choose(){
+      //点击选择图片，js调用Android打开相册
+        JSInterface.choose();
+    },
+    onChooseResult(images){
+      var imagesData = new Array();
+      imagesData = images.split(',');
+      for ( var i in imagesData) {        
+        this.$store.state.demandImgList.push(imagesData[i]);
+      }
+      this.$router.push("/addlabels");    
+    }
+  }
+
+}
+</script>

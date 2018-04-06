@@ -1,0 +1,97 @@
+<template>
+  <div class="content" id="JmyCollection">
+  	<header class="head">
+			<a class="ico back" href="javascript:window.history.go(-1);"></a>
+			<h1 class="y-confirm-order-h1">我的收藏</h1>
+		</header>
+		<div class="main plg">
+			 <div class="cont-row" v-for="(item,index) in list">
+          <router-link :to="{name:'demandDetail',query:{order_sn:item.order_sn}}">
+            <div class="user-row">
+                <div class="urbox">
+                    <div class="imgbox">
+                        <img :src="item.resData.userInfo.headimgurl">
+                    </div>
+                    <div class="urmsg">
+                        <p class="name">{{item.resData.userInfo.nickname}} <span class="lv">{{item.resData.userInfo.level_name}}</span></p>
+                        <p class="time">{{item.resData.add_time | Time}}发布</p>
+                    </div>
+                </div>
+                <span class="umsg">留言 {{item.resData.comment_number}}</span>
+            </div>
+            <div class="describe">{{item.resData.title}}</div>
+            <template v-if="item.resData.images">
+              <div class="picture" v-if="item.resData.images.length == 1">
+                  <template v-for="(oimg,index) in item.resData.images">
+                    <img :src="oimg">                  
+                  </template>
+              </div>
+              <div class="imgList" v-else>
+                  <div class="imgbox" v-for="(img,index) in item.resData.images">
+                      <img :src="img">
+                  </div>                      
+              </div>
+            </template>
+            <div class="urgent db-overflow">{{item.resData.describe}}</div>
+            <div class="order db-overflow">{{item.resData.provide_describe}}</div>
+          </router-link>
+      </div> 
+      <div class="nomore" v-if="nomore == 1">已经到底啦~</div>
+		</div>
+  </div>
+</template>
+<script>
+export default {
+
+  data () {
+    return {
+      list:[],
+      page:1,
+      hasAjax:0,
+      nomore:0
+    }
+  },
+  created(){
+    this.$store.commit('loading',{show:true,text:'加载中...'});
+    this.getData();
+  },
+  mounted(){
+    this.loadMore();
+    this.$store.commit('loading',{show:false});
+  },
+  methods: {
+    getData(){
+      if( this.hasAjax == 0 ){
+        this.hasAjax = 1;
+        this.$http.post('/Shop/Collect/collectList', {page:this.page},{emulateJSON:true}).then(function(response){ 
+          this.hasAjax = 0;
+          if( this.page == 0 ){
+            this.list = response.data.data.data;
+            this.page++;              
+          }else{
+            if( response.data.data.data.length == 0 ){                
+              this.hasAjax = 1;
+              this.nomore = 1;
+            }else{
+              this.page++;
+              this.list = this.list.concat(response.data.data.data);
+            }
+          }
+          this.$store.commit('loading',{show:false});                                         
+        });        
+      }else{
+        this.$store.commit('loading',{show:false});                                         
+      }
+    },
+    loadMore(){         
+        var that = this;
+        this.$store.commit('scrollFun',{dom:"JmyCollection",auto:true,bottomCall:function(){   
+          that.$store.commit('loading',{show:true,text:'加载中...'});         
+          that.getData();
+        }})
+    }
+  }
+
+}
+</script>
+

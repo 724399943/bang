@@ -1,0 +1,107 @@
+<template>
+  	<div class="content" id="JmessageIndex">
+  		<header class="head">
+			<h1 class="y-confirm-order-h1">消息</h1>
+		</header>
+		<div class="main pd">
+			<div class="news_wrap">
+				<div class="system_news">
+					<router-link to="/systemMessage">
+						<div class="imgbox">
+							<img src="../assets/images/icon_chat.png">
+						</div>
+						<div class="s_new_m" v-if="system.title">{{system.title}}</div>
+						<div class="s_new_m" v-else>暂无新消息~</div>
+					</router-link>
+				</div>				
+				<div class="chat_news">
+					<ul>
+						<li v-for="(item,index) in list">
+							<a :href="'mitchell://chat?user_id='+user.id+'&nickname='+user.nickname+'&headimgurl='+user.headimgurl">
+								<div class="cnews">
+									<div class="imgbox">
+										<img :src="item.headimgurl">
+									</div>
+									<div class="s_new_m">
+										<p class="stt">{{item.nickname}}</p>
+										<p class="nmt" v-if="item['content'] && item['content']['type'] == '1'">{{item['content']['content']}}</p>
+										<p class="nmt" v-else-if="item['content'] && item['content']['type'] == '2'">[图片]</p>
+										<p class="nmt" v-else-if="item['content'] && item['content']['type'] == '3'">[语音]</p>						
+									</div>
+								</div>
+								<p class="time">{{item.add_time | Time}}</p>
+							</a>
+						</li>	
+					</ul>
+				</div>
+			</div>
+		</div>
+  	</div>
+</template>
+<script>
+export default {
+
+	data () {
+		return {
+			system:{},
+			user:{},
+			list:[],
+			page:1,
+			hasAjax:0
+		}
+	},	
+	created(){
+		this.$store.commit('loading',{show:true,text:'加载中...'});
+    	this.getData();
+    	this.getChatHistory();
+	},
+	mounted(){
+		this.$store.commit('loading',{show:false});
+	},	
+	methods: {
+		getData(){
+	      this.$http.post('/Shop/Message/index', {},{emulateJSON:true}).then(function(response){ 
+	        var returnData = response['data'];
+	        if( returnData.status == 200000 ){
+	          this.system = returnData.data.system;
+	          this.$store.state.is_auth = returnData.user.is_auth;
+	          localStorage.is_auth = returnData.user.is_auth;
+	          this.user = returnData.user;
+	        }
+	      });	      
+	    },
+	    getChatHistory(){
+	    	if( this.hasAjax == 0 ){
+		        this.hasAjax = 1;
+		        this.$http.post('/Shop/Chat/chatHistory', {page:this.page},{emulateJSON:true}).then(function(response){  
+		          this.hasAjax = 0;
+		          if( this.page == 0 ){
+		            this.list = response.data.data.list;
+		            this.page++;              
+		          }else{
+		            if( response.data.data.list.length == 0 ){                
+		              this.hasAjax = 1;
+		            }else{
+		              this.page++;
+		              this.list = this.list.concat(response.data.data.list);
+		            }
+		          }
+		          this.$store.commit('loading',{show:false});                                         
+		        });        
+		      }else{
+		        this.$store.commit('loading',{show:false});                                         
+		    }
+	    },
+	    loadMore(){         
+	        var that = this;
+	        this.$store.commit('scrollFun',{dom:"JmessageIndex",auto:true,bottomCall:function(){   
+	          that.$store.commit('loading',{show:true,text:'加载中...'});         
+	          that.getChatHistory();
+	        }})
+	    }
+
+	}
+
+}
+</script>
+

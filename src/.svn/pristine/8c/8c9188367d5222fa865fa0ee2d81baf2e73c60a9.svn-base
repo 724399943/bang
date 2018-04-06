@@ -1,0 +1,143 @@
+<template>
+  <div class="content">
+  	<header class="head bdnone">
+			<router-link class="ico back" to="/personalCenter"></router-link>
+			<h1 class="y-confirm-order-h1">个人信息</h1>
+		</header>
+		<div class="main plg inpdb">
+			<div class="basicHeadBox">
+          <div class="imgbox">
+              <img :src="userInfo.headimgurl">
+              <input type="file" name="" accept="image/*" capture="camera" @change="imageuploaded" v-if="(iphone == false && android == false) || iphone == true">
+          </div>
+          <p class="name">{{userInfo.nickname}}</p>   
+          <router-link to="/myPoints" class="inte">积分 {{userInfo.point}} ({{userInfo.level_name}}) ></router-link>       
+      </div> 
+      <div class="y-bindphone">
+          <ul>              
+            <li>
+              <router-link :to="{name:'setNickname',params:{nickname:userInfo.nickname}}">
+                <span>昵称</span>
+                <input type="text" name="" disabled="disabled" :value="userInfo.nickname" class="txt">
+              </router-link>
+            </li>
+            <li class="ute">
+              <router-link :to="{name:'replaceBindPhone',params:{nickname:userInfo.phone}}">
+                <span>手机号</span>
+                <input type="text" name="" disabled="disabled" :value="userInfo.phone" class="txt">
+              </router-link>
+            </li> 
+            <li class="ute">
+              <a href="javascript:;">
+                <span>性别</span>
+                <input type="text" name="" class="txt" disabled="disabled" value="男" v-if="userInfo.sex == 0">
+                <input type="text" name="" class="txt" disabled="disabled" value="女" v-else-if="userInfo.sex == 1">
+                <input type="text" name="" class="txt" disabled="disabled" value="保密" v-else>
+              </a>
+            </li>                
+            <li class="ute">
+              <a href="javascript:;">
+                <span>年龄</span>
+                <input type="text" name="" disabled="disabled" value="20" class="txt">
+              </a>
+            </li> 
+            <li class="ute">
+              <a href="javascript:;">
+                <span>生日</span>
+                <input type="text" name="" disabled="disabled" :value="userInfo.birthday" class="txt">
+              </a>
+            </li> 
+            <li class="ute">
+              <router-link :to="{name:'setIdentity',params:{job:userInfo.job}}">
+                <span>职业</span>
+                <input type="text" name="" placeholder="请补充" disabled="disabled" class="txt" :value="userInfo.job">
+              </router-link>
+            </li>  
+            <li class="ute">
+              <router-link :to="{name:'setAutograph',params:{signature:userInfo.signature}}">
+                <span>个性签名</span>
+                <input type="text" name="" placeholder="请补充" disabled="disabled" class="txt" :value="userInfo.signature">
+              </router-link>
+            </li>   
+            <li class="ute">
+              <router-link to="/relatedSkills">
+                <span>相关技能</span>
+              </router-link>
+            </li>   
+            <li class="ute">
+              <router-link to="/relatedAptitude">
+                <span>相关资质</span>
+              </router-link>
+            </li>   
+            <li class="ute">
+              <router-link to="/forgotPassword">
+                <span>修改密码</span>
+              </router-link>
+            </li>   
+          </ul>
+      </div>
+		</div>
+  </div>
+</template>
+<script>
+export default {
+
+  data () {
+    return {
+      userInfo:{},
+      iphone : false,
+      android : false
+    }
+  },
+  created(){
+    var ua = navigator.userAgent.toLowerCase();
+    if (ua.indexOf('micromessenger') == -1) {
+      if (ua.indexOf('iphone') != -1 || ua.indexOf('ipad') != -1 || ua.indexOf('ipod') != -1) {
+            this.iphone = true;
+            this.android = false;
+        } else {
+            this.iphone = false;
+            this.android = true;
+        }
+    }
+    this.$store.commit('loading',{show:true,text:'加载中...'});
+    this.getData();
+  },
+  mounted(){
+    this.$store.commit('loading',{show:false});
+  },
+  methods: {
+    getData(){
+      this.$http.post('/Shop/User/userInfo', {},{emulateJSON:true}).then(function(response){ 
+        var returnData = response['data'];
+        if( returnData.status == 200000 ){
+          this.userInfo = returnData.data.userInfo;
+        }
+      });
+    },
+    imageuploaded(e) {
+        var that = this;
+        var files = e.target.files || e.dataTransfer.files
+        var reader = null;
+        reader = new window.FileReader();
+        reader.readAsDataURL(files[0]);
+        reader.onload = function(e){
+          that.$http.post('/Shop/Public/base64Upload', {image:e.target.result,dir:'User'},{emulateJSON:true}).then(function(response){
+              if( response.data.status == "200000" ){
+                  that.userInfo["headimgurl"] = response.data.data.image;
+                  that.changeHeadimg();
+              }
+          })
+        }
+    },
+    changeHeadimg(){
+      this.$http.post('/Shop/User/updateUser', {headimgurl:this.userInfo.headimgurl}, {emulateJSON:true}).then(function(response){
+          this.$store.commit('alert',{show:true,text:response.data.message});       
+      });
+    }
+
+  }
+
+}
+</script>
+

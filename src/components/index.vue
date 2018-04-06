@@ -1,0 +1,209 @@
+<template>
+    <div class="content pd" id="Jindex" @touchmove="touchMoveFun">
+      <header class="in-head inbg" :class="{changebg:change==1,recoverbg:change==0}">
+          <span class="posi" v-if="!serviceJson.city">未定位</span>
+          <span class="posi" v-else>{{serviceJson.city}}</span>
+          <div class="sear-box">
+            <router-link to="/search">
+              <div class="search">
+                  <em class="ico"></em>
+                  <input type="text" name="" disabled="disabled" placeholder="点击即可搜索">
+              </div>
+            </router-link>
+          </div>
+          <router-link to="/ranking" class="rank"></router-link>
+          <router-link to="/messageIndex" class="msg"></router-link>
+      </header>
+      <div class="banner swiper-container" style="height: auto">  
+        <swiper auto dots-position="center">
+          <template v-for="(ban,index) in bannerList">
+            <swiper-item class="black">
+              <router-link :to="{name:'advertisementDetail',query:{id:ban['id']}}" v-if="ban.type=='0'">
+                <img class="Sw-img" :src="ban.image">
+              </router-link> 
+              <router-link :to="ban.url" v-else-if="ban.type=='1'">
+                <img class="Sw-img" :src="ban.image">
+              </router-link>              
+            </swiper-item>   
+          </template>                     
+        </swiper>                    
+      </div>
+      <div class="nav-function">
+          <div class="nav-row" v-for="(cate,index) in categoryList">
+              <router-link :to="{name:'requirementsList',query:{category_id:cate.category_id,pid:cate.pid,category_name:cate.category_name}}">
+                <img :src="cate.app_icon" class="ico">
+                <p class="pt">{{cate.category_name}}</p>
+              </router-link>
+          </div>          
+      </div>
+      <div class="home-main">
+          <nav class="hnav">
+              <span :class="{on:serviceJson.type==1}" @click="ontabFun(1)">最新</span>
+              <span :class="{on:serviceJson.type==2}" @click="ontabFun(2)">附近</span>
+              <span :class="{on:serviceJson.type==3}" @click="ontabFun(3)">关注</span>
+          </nav>
+          <div class="home-user-cont">
+              <div class="cont-row" v-for="(item,index) in serviceList">
+                <router-link :to="{name:'demandDetail',query:{order_sn:item.order_sn}}">
+                  <div class="user-row">
+                      <div class="urbox">
+                          <div class="imgbox">                              
+                              <img :src="item.headimgurl">
+                          </div>
+                          <div class="urmsg">
+                              <p class="name">                                
+                                  {{item.nickname}}
+                                <span class="lv">{{item.level_name}}</span>
+                              </p>
+                              <p class="time">{{item.add_time | Time}} 发布</p>
+                          </div>
+                      </div>
+                      <span class="umsg">留言 {{item.comment_number}}</span>
+                  </div>
+                  <div class="describe">{{item.title}}</div>
+                  <template v-if="item.images">
+                    <div class="picture" v-if="item.images.length == 1">
+                        <template v-for="(oimg,index) in item.images">
+                          <img :src="oimg">                  
+                        </template>
+                    </div>
+                    <div class="imgList" v-else>
+                        <div class="imgbox" v-for="(img,index) in item.images">
+                            <img :src="img">
+                        </div>                      
+                    </div>
+                  </template>
+                  <div class="urgent db-overflow">{{item.describe}}</div>
+                  <div class="order db-overflow">{{item.provide_describe}}</div>
+                </router-link>
+              </div>              
+          </div>          
+      </div>
+      <div class="nomore" v-if="nomore == 1">已经到底啦~</div>
+    </div>
+</template>
+<script>
+import {Swiper,SwiperItem} from 'vux/src/components/swiper'
+export default {
+
+  data () {
+    return {
+      bannerList:[],
+      categoryList:[],
+      serviceList:[],
+      serviceJson:{
+        type:1,
+        page:1,
+        longitude:null,
+        latitude:null,
+        city:"未定位"
+      },
+      hasAjax:0,
+      nomore:0,
+      is_change:false,
+      change:-1
+    }
+  },
+  props:[
+
+  ],
+  created(){
+    this.$store.commit('loading',{show:true,text:'加载中...'});
+    this.getData();
+    this.getServiceDate();  
+    window.onLocationSuccessful = this.onLocationSuccessful;   
+    this.setPosition();    
+  },
+  components : {
+    Swiper,
+    SwiperItem
+  },
+  watch:{
+    
+  },
+  mounted(){       
+    this.loadMore();
+    this.$store.commit('loading',{show:false});
+  },
+  methods: {
+    getData(){
+      this.$http.post('/Shop/Index/indexBanner', {},{emulateJSON:true}).then(function(response){ 
+        var returnData = response['data'];
+        if( returnData.status == 200000 ){
+          this.bannerList = returnData.data.list;
+          this.$store.state.is_auth = returnData.user.is_auth;
+          localStorage.is_auth = returnData.user.is_auth;
+        }
+      });
+      this.$http.post('/Shop/Index/indexCategory', {},{emulateJSON:true}).then(function(response){ 
+        var returnData = response['data'];
+        if( returnData.status == 200000 ){
+          this.categoryList = returnData.data.list;          
+        }
+      });      
+    },
+    getServiceDate(){
+      if( this.hasAjax == 0 ){
+        this.hasAjax = 1;
+        this.$http.post('/Shop/Index/indexServiceList', {type:this.serviceJson.type,page:this.serviceJson.page,longitude:this.serviceJson.longitude,latitude:this.serviceJson.latitude},{emulateJSON:true}).then(function(response){  
+          this.hasAjax = 0;
+          if( this.serviceJson.page == 0 ){
+            this.serviceList = response.data.data.list;
+            this.serviceJson.page++;              
+          }else{
+            if( response.data.data.list.length == 0 ){                
+              this.hasAjax = 1;
+              this.nomore = 1;
+            }else{
+              this.serviceJson.page++;
+              this.serviceList = this.serviceList.concat(response.data.data.list);
+            }
+          }
+          this.$store.commit('loading',{show:false});                                         
+        });        
+      }else{
+        this.$store.commit('loading',{show:false});                                         
+      }
+    },
+    loadMore(){         
+        var that = this;
+        this.$store.commit('scrollFun',{dom:"Jindex",auto:true,bottomCall:function(){   
+          that.$store.commit('loading',{show:true,text:'加载中...'});         
+          that.getServiceDate();
+        }})
+    },
+    ontabFun(type){
+      this.serviceJson.type = type;
+      this.serviceJson.page = 1;      
+      this.serviceList = [];
+      this.hasAjax = 0;
+      this.nomore = 0;      
+      this.$store.commit('loading',{show:true,text:'加载中...'});
+      this.getServiceDate();
+    },
+    onLocationSuccessful(lat,lng,city){
+      localStorage.latitude = lat;
+      localStorage.longitude = lng;
+      localStorage.city = city;        
+      this.setPosition();         
+    },
+    touchMoveFun:function(){
+      var disY = document.body.scrollTop || document.documentElement.scrollTop;
+      if( disY > 250 ){
+        this.is_change = true;        
+      }      
+      if( this.is_change == true ){
+        this.change = disY > 250 ? 1 : 0;
+      }
+    },
+    setPosition:function(){
+      this.serviceJson["latitude"] = localStorage.latitude;
+      this.serviceJson["longitude"] = localStorage.longitude;
+      this.serviceJson["city"] = localStorage.city;
+    }
+
+  }
+
+}
+</script>
+

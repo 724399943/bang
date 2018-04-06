@@ -1,0 +1,193 @@
+<template>
+	<div class="content" id="content">		
+      <div class="main">
+      	  <header class="head">
+            <a class="ico back" href="javascript:window.history.go('-1');"></a>
+            <h1 class="y-confirm-order-h1">实名认证</h1>
+            <span class="text" @touchstart="commitAuth">保存</span>
+          </header>
+          <div class="y-bindphone">
+            <ul>              
+              <li>
+                <span>公司名称</span>
+                <input type="text" name="" placeholder="请输入" class="txt" v-model="dataJson.company_name">
+              </li>
+              <li class="ute">
+                  <span>法人代表</span>
+                  <input type="text" name="" placeholder="请输入" class="txt" v-model="dataJson.representative">
+              </li> 
+              <li class="ute">
+                  <span>注册地区</span>
+                  <input type="text" name="" class="txt" readonly="readonly" value="" id="JLAreaclick" placeholder="请选择">
+                  <input id="JAreavalue" type="hidden">
+                  <input id="province" type="hidden" name="province">
+                  <input id="city" type="hidden" name="city">
+                  <input id="county" type="hidden" name="county">
+              </li>                
+              <li>
+                <span>身份证号</span>
+                <input type="text" name="" placeholder="请输入" class="txt" v-model="dataJson.id_number">
+              </li>      
+            </ul>
+        </div>
+        <div class="reg-upload">
+            <p class="title">上传身份证件：</p>
+            <div class="load-row mar">
+                <div class="imgbox">
+                    <img src="../assets/images/login_license.png" v-if="licen==0">
+                    <img :src="dataJson.front_url" v-else>
+                </div> 
+                <div class="imgbox" v-if="back==1">
+                    <img :src="dataJson.back_url">
+                </div> 
+                <div class="imgbox" v-if="other==1">
+                    <img :src="dataJson.other_url">
+                </div>                
+            </div>
+            <div class="load-row">                
+                <div class="uploadbtn mr">
+                    <img src="../assets/images/home_icon_upload.png" class="add">
+                    <p class="pt">营业执照正面</p>
+                    <input type="file" name="" accept="image/*" @change="imageuploaded($event,'licen')" v-if="(iphone == false && android == false) || iphone == true">
+                    <input type="button" @click="choose('licen')" v-else-if="android == true">
+                </div>
+                <div class="uploadbtn mr">
+                    <img src="../assets/images/home_icon_upload.png" class="add">
+                    <p class="pt">营业执照反面</p>
+                    <input type="file" name="" accept="image/*" @change="imageuploaded($event,'back')" v-if="(iphone == false && android == false) || iphone == true">
+                    <input type="button" @click="choose('back')" v-else-if="android == true">
+                </div>
+                <div class="uploadbtn">
+                    <img src="../assets/images/home_icon_upload.png" class="add">
+                    <p class="pt">其他图片</p>
+                    <input type="file" name="" accept="image/*" @change="imageuploaded($event,'other')" v-if="(iphone == false && android == false) || iphone == true">
+                    <input type="button" @click="choose('other')" v-else-if="android == true">
+                </div>
+            </div>
+        </div>
+      </div>
+	</div>
+</template>
+<script>
+import {} from '../assets/js/LArea.js';
+export default {
+
+  data () {
+    return {
+      dataJson:{auth_name:'企业认证',type:1},
+      licen:0,
+      back:0,
+      other:0,
+      iphone : false,
+      android : false,
+      imgtype:null
+    }
+  },
+  created(){
+    var ua = navigator.userAgent.toLowerCase();
+    if (ua.indexOf('micromessenger') == -1) {
+      if (ua.indexOf('iphone') != -1 || ua.indexOf('ipad') != -1 || ua.indexOf('ipod') != -1) {
+            this.iphone = true;
+            this.android = false;
+        } else {
+            this.iphone = false;
+            this.android = true;
+        }
+    }
+    window.onChooseResult = this.onChooseResult;
+  },   
+  components : {
+    
+  }, 
+  mounted(){
+  	this.apifun();
+  },
+  methods: {
+    commitAuth(){    
+      var that = this;  
+      this.$http.post('/Shop/Auth/commitAuth', this.dataJson,{emulateJSON:true}).then(function(response){ 
+        this.$store.commit('loading',{show:true,text:'提交中...'});
+        var returnData = response['data'];
+        if( returnData.status == 200000 ){
+          this.$store.commit('loading',{show:false});
+          this.$store.state.is_auth = 1;
+          localStorage.is_auth = 1;
+          this.$store.commit("alert",{show:true,text:returnData.message,call:function(){
+            that.$router.push("/");
+          }});
+        }else{
+          this.$store.commit('loading',{show:false});
+          this.$store.commit("alert",{show:true,text:returnData.message});
+        }
+      });
+    },
+    apifun(){
+      // 初始化所在地信息
+      var that = this;
+      var LA = new LArea();
+      LA.init({
+        'trigger': '#JLAreaclick', //触发选择控件的文本框，同时选择完毕后name属性输出到该位置
+        'valueTo': '#JAreavalue', //选择完毕后id属性输出到该位置
+        'keys': {
+          id: 'id',
+          name: 'name'
+        },
+        //绑定数据源相关字段 id对应valueTo的value属性输出 name对应trigger的value属性输出
+        'type': 1, //数据源类型
+        // 'data': LAreaData ,  //数据源
+        'callback': function() {
+            that.dataJson['province'] = document.getElementById('province').value
+            that.dataJson['city'] = document.getElementById('city').value
+            that.dataJson['county'] = document.getElementById('county').value
+            that.dataJson['area'] = document.getElementById('JAreavalue').value
+          }
+      });      
+    },
+    imageuploaded(event,type) {
+      var that = this;
+      var files = event.target.files || event.dataTransfer.files;
+      var reader = null;
+      reader = new window.FileReader();
+      reader.readAsDataURL(files[0]);      
+      reader.onload = function(e){
+        that.$http.post('/Shop/Public/base64Upload', {image:e.target.result,dir:'Auth'},{emulateJSON:true}).then(function(response){
+            if( response.data.status == "200000" ){
+              if( type == 'licen' ){
+                that.dataJson["front_url"] = response.data.data.image;
+                that.licen = 1;
+              }else if( type == 'back' ){
+                that.dataJson["back_url"] = response.data.data.image;
+                that.back = 1;
+              }else{
+                that.dataJson["other_url"] = response.data.data.image;
+                that.other = 1;
+              }              
+            }
+        })
+      }
+    },
+    choose(type){
+      this.imgtype = type;
+      //点击选择图片，js调用Android打开相册
+        JSInterface.choose(1);
+    },
+    onChooseResult(images){
+      if( this.imgtype == 'licen' ){
+        this.dataJson["front_url"] = images;
+        this.licen = 1;
+      }else if( this.imgtype == 'back' ){
+        this.dataJson["back_url"] = images;
+        this.back = 1;
+      }else{
+        this.dataJson["other_url"] = images;
+        this.other = 1;
+      } 
+    }
+
+  }
+
+}
+</script>
+<style>
+  @import '../assets/css/LArea.css';
+</style>

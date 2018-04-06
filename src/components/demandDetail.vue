@@ -1,0 +1,241 @@
+<template>
+  	<div class="content">
+  		<header class="head">
+			<a class="ico back" href="javascript:window.history.go(-1);"></a>
+			<h1 class="y-confirm-order-h1">需求详情</h1>
+		</header>
+		<div class="main pd">
+			 <div class="cont-row">
+          <div class="demandTop">
+            <div class="user-row">
+                <div class="urbox">
+                    <div class="imgbox">
+                        <img :src="userData.headimgurl">
+                    </div>
+                    <div class="urmsg">
+                        <p class="name">{{userData.nickname}} <span class="lv">{{userData.level_name}}</span></p>
+                        <p class="time">{{userData.add_time | Time}}发布于{{userData.city}}</p>
+                    </div>
+                </div>
+                <span class="follow" @touchstart="followUser(userData.id)"><template v-if="userData.is_follow == 0">加关注</template><template v-else>已关注</template></span>
+            </div> 
+            <div class="describe">{{serData.title}}</div>
+            <div class="urgent">{{serData.describe}}</div>
+            <div class="order">{{serData.provide_describe}}</div>
+            <template v-if="serData.images">
+              <div class="picture" v-if="serData.images.length == 1">
+                  <template v-for="(oimg,index) in serData.images">
+                    <img :src="oimg">                  
+                  </template>
+              </div>
+              <div class="picture" v-else-if="serData.images.length > 1">
+                  <swiper auto height="140px">
+                    <template v-for="(img,index) in serData.images">
+                      <swiper-item class="black">
+                        <router-link to="">
+                          <img class="Sw-img" :src="img">
+                        </router-link>              
+                      </swiper-item>     
+                    </template>                             
+                  </swiper> 
+              </div>
+            </template>            
+          </div>           
+       </div>
+      <div class="demandUsrbox">
+        <div class="demandUser">
+          <p class="name">{{userData.nickname}} <span class="lv">{{userData.level_name}}</span></p>
+          <p class="pt">来服务帮{{userData.days}}天了，成交过{{userData.deal_number}}次。 现居{{userData.province}}{{userData.city}}的女生。</p>
+          <div class="text">
+            <span v-for="(auth,index) in authData"><em class="ico"></em>{{auth}}</span>
+          </div>
+          <div class="userBox">
+              <div class="headbox">
+                  <img :src="userData.headimgurl">
+              </div>
+              <p class="btn" @touchstart="followUser(userData.id)"><template v-if="userData.is_follow == 0">加关注</template><template v-else>已关注</template></p>
+          </div>
+        </div> 
+      </div>
+      <div class="msgBoard">
+          <div class="title">留言({{commentData.length}})</div>
+          <div class="msgRow">
+            <div class="user-row mrb" v-for="(com,index) in commentData">
+                <div class="urbox" @touchstart="leaveMsg(2,com.nickname,com.from_id,com.id,index)">
+                    <div class="imgbox">
+                        <img :src="com.headimgurl">
+                    </div>
+                    <div class="urmsg">
+                        <p class="name">{{com.nickname}} <span class="lv">{{com.level_name}}</span></p>
+                        <p class="time">{{com.add_time | Time}}发布</p>
+                    </div>
+                </div>
+                <div class="comment">
+                    <div class="usrcome">{{com.content}}</div>
+                    <div class="replyMain">
+                        <div class="replyCont" v-for="(scom,index) in com.second_comment">
+                          <div class="user-row">
+                              <div class="urbox">
+                                  <div class="imgbox">
+                                      <img :src="scom.from_headimgurl">
+                                  </div>
+                                  <div class="urmsg">
+                                      <p class="name">{{scom.from_nickname}} <span class="lv">{{scom.from_level}}</span></p>
+                                      <p class="time">{{scom.add_time | Time}}发布</p>
+                                  </div>
+                              </div>
+                          </div>
+                          <div class="replytext">回复@{{scom.to_nickname}}:{{scom.content}}</div>
+                        </div>                        
+                    </div>
+                </div>
+            </div>             
+          </div>          
+      </div>
+      <footer class="demandfoot">
+          <div class="footlf">
+              <span class="leave" @touchstart="leaveMsg(1)">留言</span>
+              <span class="collect" @touchstart="collectFun(serData.order_sn)"><template v-if="serData.is_collect==0">收藏</template><template v-else>已收藏</template></span>
+          </div>
+          <router-link to="/login" class="btn" v-if="session_id == undefined">确认需求</router-link>
+          <a href="javascript:;" class="btn" v-else @click="jumpChat">确认需求</a>
+      </footer>
+      <div class="demandCome" v-if="addcommentBol==true"><input type="text" name="" :placeholder="placeholder" v-model="addCommentJson.content" @blur="addComment"></div>
+		</div>
+  </div>
+</template>
+<script>
+import {Swiper,SwiperItem} from 'vux/src/components/swiper'
+export default {
+
+  data () {
+    return {
+      authData:[],
+      commentData:[],
+      serData:{},
+      userData:{},
+      user:{},
+      addcommentBol:false,
+      addCommentJson:{},
+      placeholder:"",
+      levelComment:null,
+      commentator:{},
+      commentIndex:null,
+      chatImage:null,
+      session_id:localStorage.session_id,
+      webSite:null,
+      is_auth:localStorage.is_auth
+    }
+  },
+  created(){
+    this.$store.commit('loading',{show:true,text:'加载中...'});
+    this.getData();
+  },
+  components : {
+    Swiper,
+    SwiperItem
+  },
+  mounted(){
+    this.$store.commit('loading',{show:false});
+  },
+  methods: {
+    getData(){
+      this.$http.post('/Shop/Service/serviceDetail', {order_sn:this.$route.query.order_sn},{emulateJSON:true}).then(function(response){ 
+        var returnData = response['data'];
+        if( returnData.status == 200000 ){
+          this.authData = returnData.data.authData;
+          this.commentData = returnData.data.commentData;
+          this.serData = returnData.data.serData;
+          this.userData = returnData.data.userData;
+          this.user = returnData.user;
+          this.chatImage = returnData.data.serData.images[0];
+          this.webSite = returnData.webSite;
+        }
+      });
+    },
+    followUser(id){ 
+      if( localStorage.session_id != undefined ){     
+        var postUrl = this.userData.is_follow==0 ? "/Shop/User/followUser" : "/Shop/User/cancelAttention";
+        this.$http.post(postUrl, {user_id:id},{emulateJSON:true}).then(function(response){ 
+          var returnData = response['data'];
+          this.$store.commit("alert",{show:true,text:returnData.message});
+          if( returnData.status == 200000 ){
+            this.userData.is_follow = this.userData.is_follow==0 ? 1 : 0;
+          }
+        });
+      }else{
+        this.$router.push("/login");
+      }
+    },
+    collectFun(order_sn){
+      if( localStorage.session_id != undefined ){
+        var postUrl = this.serData.is_collect==0 ? "/Shop/Collect/toCollect" : "/Shop/Collect/delCollect";
+        this.$http.post(postUrl, {order_sn:order_sn},{emulateJSON:true}).then(function(response){ 
+          var returnData = response['data'];
+          this.$store.commit("alert",{show:true,text:returnData.message});
+          if( returnData.status == 200000 ){
+            this.serData.is_collect = this.serData.is_collect==0 ? 1 : 0;
+          }
+        });
+      }else{
+        this.$router.push("/login");
+      }
+    },
+    leaveMsg(level,nickname,from_id,pid,index){
+      if( localStorage.session_id != undefined ){
+        this.levelComment = level;
+        this.placeholder = level==1?"说点什么吧(100字内)" : "回复@"+nickname+"：(100字内)";
+        this.addcommentBol = true;
+        if( level == 1 ){
+          this.addCommentJson["to_id"] = this.userData.id;        
+        }else{
+          this.addCommentJson["to_id"] = from_id;  
+          this.addCommentJson["pid"] = pid; 
+          this.commentator["headimgurl"] = this.commentData[index].headimgurl;
+          this.commentator["nickname"] = nickname;
+          this.commentIndex = index;
+        }
+        this.addCommentJson["order_sn"] = this.serData.order_sn;
+      }else{
+        this.$router.push("/login");
+      }
+    },
+    addComment(){
+      if( !this.addCommentJson.content ){
+        this.addcommentBol = false;
+        return;
+      }              
+      this.$http.post('/Shop/Comment/addComment', this.addCommentJson,{emulateJSON:true}).then(function(response){
+        var returnData = response['data'];
+        this.$store.commit("alert",{show:true,text:returnData.message});
+        if( returnData.status == 200000 ){          
+          var comment = {};
+          comment["content"] = this.addCommentJson.content;
+          comment["add_time"] = new Date().getTime();
+          if( this.levelComment == 1 ){ 
+            comment["headimgurl"] = this.user.headimgurl;
+            comment["nickname"] = this.user.nickname;
+            this.commentData.unshift(comment);
+          }else{
+            comment["from_headimgurl"] = this.userData.headimgurl;
+            comment["from_nickname"] = this.userData.nickname;
+            comment["to_nickname"] = this.commentator.nickname;
+            comment["from_level"] = this.userData.level_name;
+            this.commentData[this.commentIndex].second_comment.unshift(comment);
+          }                    
+          this.addCommentJson = {};
+        }else{
+          this.addcommentBol = false;
+        }
+      });
+    },
+    jumpChat(){
+      var url = 'mitchell://chat?user_id='+this.userData.id+'&nickname='+this.userData.nickname+'&headimgurl='+this.webSite+this.userData.headimgurl+'&is_auth='+this.is_auth+'&order_sn='+this.serData.order_sn+'&goodsInfo={"id":"'+this.serData.id+'","goods_name":"'+this.serData.title+'","goods_price":"1","goods_images":"'+this.webSite+this.chatImage+'"}';
+      window.location.href = url;
+    }
+
+  }
+
+}
+</script>
+
